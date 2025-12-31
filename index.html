@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>彩票开奖统计 - 手机版</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎰</text></svg>">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#2196f3">
+    <style>
+        .loading-spinner {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 9999;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #2196f3;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading-spinner" id="loading">
+        <div class="spinner"></div>
+        <p>加载中...</p>
+    </div>
+
+    <!-- 顶部导航栏 -->
+    <header class="app-header">
+        <button class="menu-btn" onclick="toggleMenu()">
+            <i class="fas fa-bars"></i>
+        </button>
+        <h1 class="app-title">🎰 彩票统计</h1>
+        <button class="refresh-btn" onclick="fetchData()" title="刷新数据">
+            <i class="fas fa-sync-alt"></i>
+        </button>
+    </header>
+
+    <!-- 侧边菜单 -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2><i class="fas fa-chart-line"></i> 功能菜单</h2>
+            <button class="close-btn" onclick="toggleMenu()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="menu-items">
+            <a href="#" class="menu-item active" onclick="showSection('dashboard')">
+                <i class="fas fa-home"></i> 控制面板
+            </a>
+            <a href="#" class="menu-item" onclick="showSection('point13')">
+                <i class="fas fa-chart-bar"></i> 13点分析
+            </a>
+            <a href="#" class="menu-item" onclick="showSection('point14')">
+                <i class="fas fa-chart-bar"></i> 14点分析
+            </a>
+            <a href="#" class="menu-item" onclick="showSection('compare')">
+                <i class="fas fa-balance-scale"></i> 对比分析
+            </a>
+            <a href="#" class="menu-item" onclick="showSection('history')">
+                <i class="fas fa-history"></i> 开奖历史
+            </a>
+            <a href="#" class="menu-item" onclick="showSection('charts')">
+                <i class="fas fa-chart-pie"></i> 统计图表
+            </a>
+            <a href="#" class="menu-item" onclick="showSection('settings')">
+                <i class="fas fa-cog"></i> 设置
+            </a>
+        </div>
+        <div class="sidebar-footer">
+            <div class="data-status">
+                <i class="fas fa-circle" id="statusIcon"></i>
+                <span id="statusText">离线</span>
+            </div>
+            <div class="version">v2.0</div>
+        </div>
+    </div>
+
+    <!-- 主要内容区域 -->
+    <main class="main-content">
+        <!-- 控制面板 -->
+        <section id="dashboard" class="section active">
+            <div class="section-header">
+                <h2><i class="fas fa-tachometer-alt"></i> 控制面板</h2>
+                <button class="btn btn-primary" onclick="fetchData()">
+                    <i class="fas fa-sync-alt"></i> 刷新
+                </button>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-database"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>总期数</h3>
+                        <div class="stat-value" id="totalPeriods">0</div>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="color: #2196f3;">
+                        <i class="fas fa-hashtag"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>13点出现</h3>
+                        <div class="stat-value" id="point13Count">0</div>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="color: #ff9800;">
+                        <i class="fas fa-hashtag"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>14点出现</h3>
+                        <div class="stat-value" id="point14Count">0</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 遗漏警报 -->
+            <div class="alert-card warning" id="alertCard13">
+                <div class="alert-header">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>13点遗漏警报</h3>
+                </div>
+                <div class="alert-body">
+                    <p>当前遗漏: <span id="missing13Current">0</span> 期</p>
+                    <small>最长遗漏: <span id="missing13Max">0</span> 期</small>
+                </div>
+            </div>
+            
+            <div class="alert-card warning" id="alertCard14">
+                <div class="alert-header">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>14点遗漏警报</h3>
+                </div>
+                <div class="alert-body">
+                    <p>当前遗漏: <span id="missing14Current">0</span> 期</p>
+                    <small>最长遗漏: <span id="missing14Max">0</span> 期</small>
+                </div>
+            </div>
+            
+            <!-- 最新开奖 -->
+            <div class="recent-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-history"></i> 最新开奖</h3>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>期号</th>
+                                <th>号码</th>
+                                <th>点数</th>
+                                <th>时间</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentTable">
+                            <tr><td colspan="4" class="no-data">暂无数据</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 13点分析 -->
+        <section id="point13" class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-chart-bar"></i> 13点详细分析</h2>
+            </div>
+            
+            <div class="analysis-grid">
+                <div class="stat-box">
+                    <i class="fas fa-hashtag"></i>
+                    <h4>出现次数</h4>
+                    <div class="value" id="p13Count">0</div>
+                </div>
+                <div class="stat-box">
+                    <i class="fas fa-chart-pie"></i>
+                    <h4>出现频率</h4>
+                    <div class="value" id="p13Freq">0%</div>
+                </div>
+                <div class="stat-box">
+                    <i class="fas fa-clock"></i>
+                    <h4>当前遗漏</h4>
+                    <div class="value" id="p13Current">0</div>
+                </div>
+                <div class="stat-box">
+                    <i class="fas fa-fire"></i>
+                    <h4>最长遗漏</h4>
+                    <div class="value" id="p13Max">0</div>
+                </div>
+                <div class="stat-box">
+                    <i class="fas fa-calculator"></i>
+                    <h4>平均遗漏</h4>
+                    <div class="value" id="p13Avg">0</div>
+                </div>
+                <div class="stat-box">
+                    <i class="fas fa-list-ol"></i>
+                    <h4>长遗漏次数</h4>
+                    <div class="value" id="p13Long">0</div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <h3><i class="fas fa-chart-line"></i> 遗漏走势</h3>
+                <div class="chart-wrapper">
+                    <canvas id="chart13"></canvas>
+                </div>
+            </div>
+            
+            <div class="records-card">
+                <h3><i class="fas fa-list"></i> 长遗漏记录(≥30期)</h3>
+                <div class="records-list" id="missing13Records">
+                    <div class="no-data">暂无超过30期的长遗漏记录</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 14点分析 -->
+        <section id="point14" class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-chart-bar"></i> 14点详细分析</h2>
+            </div>
+            
+            <div class="analysis-grid">
+                <div class="stat-box">
+                    <i class="fas fa-hashtag"></i>
+                    <h4>出现次数</h4>
+                    <div class="value" id="p14Count">0</div>
+                </div>
+                <div class="stat-box">
+                    <i class="fas fa-chart-pie"></i>
+                    <h4>出现频率</h4>
+                    <div class="value" id="p14Freq">0%</div>
+                </div>
+                <div class="stat-box">
+                    <i class="fas fa-clock"></i>
+                    <h4>当前遗漏</h4>
+                    <div class="value" id="p14Current">0</div>
+                </div>
+                <div class="stat-box">
+                    <i class="fas fa-fire"></i>
+                    <h4>最长遗漏</h4>
+                    <div class="value" id="p14Max">0</div>
+                </div>
+                <div class="stat-box">
+                    <i class="fas fa-calculator"></i>
+                    <h4>平均遗漏</h4>
+                    <div class="value" id="p14Avg">0</div>
+                </div>
+                <div class="stat-box">
+                    <i class="fas fa-list-ol"></i>
+                    <h4>长遗漏次数</h4>
+                    <div class="value" id="p14Long">0</div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <h3><i class="fas fa-chart-line"></i> 遗漏走势</h3>
+                <div class="chart-wrapper">
+                    <canvas id="chart14"></canvas>
+                </div>
+            </div>
+            
+            <div class="records-card">
+                <h3><i class="fas fa-list"></i> 长遗漏记录(≥30期)</h3>
+                <div class="records-list" id="missing14Records">
+                    <div class="no-data">暂无超过30期的长遗漏记录</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 对比分析 -->
+        <section id="compare" class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-balance-scale"></i> 13点 vs 14点 对比</h2>
+            </div>
+            
+            <div class="compare-grid">
+                <div class="compare-card">
+                    <h3>13点</h3>
+                    <div class="compare-stats">
+                        <div class="stat-row">
+                            <span>出现次数</span>
+                            <strong id="c13Count">0</strong>
+                        </div>
+                        <div class="stat-row">
+                            <span>出现频率</span>
+                            <strong id="c13Freq">0%</strong>
+                        </div>
+                        <div class="stat-row">
+                            <span>当前遗漏</span>
+                            <strong id="c13Current">0</strong>
+                        </div>
+                        <div class="stat-row">
+                            <span>最长遗漏</span>
+                            <strong id="c13Max">0</strong>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="compare-card">
+                    <h3>14点</h3>
+                    <div class="compare-stats">
+                        <div class="stat-row">
+                            <span>出现次数</span>
+                            <strong id="c14Count">0</strong>
+                        </div>
+                        <div class="stat-row">
+                            <span>出现频率</span>
+                            <strong id="c14Freq">0%</strong>
+                        </div>
+                        <div class="stat-row">
+                            <span>当前遗漏</span>
+                            <strong id="c14Current">0</strong>
+                        </div>
+                        <div class="stat-row">
+                            <span>最长遗漏</span>
+                            <strong id="c14Max">0</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <h3><i class="fas fa-chart-bar"></i> 出现次数对比</h3>
+                <div class="chart-wrapper">
+                    <canvas id="chartCompare"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- 开奖历史 -->
+        <section id="history" class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-history"></i> 开奖历史</h2>
+                <div class="controls">
+                    <select id="filterType" onchange="filterHistory()">
+                        <option value="all">全部</option>
+                        <option value="13">仅13点</option>
+                        <option value="14">仅14点</option>
+                        <option value="other">其他点数</option>
+                    </select>
+                    <select id="pageSize" onchange="loadHistory()">
+                        <option value="20">20条</option>
+                        <option value="50" selected>50条</option>
+                        <option value="100">100条</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="table-card">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>期号</th>
+                                <th>号码</th>
+                                <th>点数</th>
+                                <th>时间</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTable">
+                            <tr><td colspan="4" class="no-data">暂无数据</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination">
+                    <button class="btn" onclick="prevPage()" id="prevBtn" disabled>
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <span id="pageInfo">第1页</span>
+                    <button class="btn" onclick="nextPage()" id="nextBtn">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 设置页面 -->
+        <section id="settings" class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-cog"></i> 设置</h2>
+            </div>
+            
+            <div class="settings-grid">
+                <div class="setting-group">
+                    <h3><i class="fas fa-sync-alt"></i> 数据设置</h3>
+                    <div class="setting-item">
+                        <label>自动更新间隔</label>
+                        <select id="autoUpdate">
+                            <option value="0">不自动更新</option>
+                            <option value="300" selected>5分钟</option>
+                            <option value="600">10分钟</option>
+                            <option value="1800">30分钟</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label>每次获取期数</label>
+                        <input type="number" id="fetchCount" value="100" min="10" max="1000">
+                    </div>
+                </div>
+                
+                <div class="setting-group">
+                    <h3><i class="fas fa-bell"></i> 警报设置</h3>
+                    <div class="setting-item">
+                        <label>
+                            <input type="checkbox" id="alertEnabled" checked>
+                            启用遗漏警报
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <label>遗漏阈值</label>
+                        <input type="number" id="alertThreshold" value="30" min="10" max="100">
+                    </div>
+                </div>
+                
+                <div class="setting-group">
+                    <h3><i class="fas fa-paint-brush"></i> 显示设置</h3>
+                    <div class="setting-item">
+                        <label>
+                            <input type="checkbox" id="darkMode" onchange="toggleDarkMode()">
+                            深色模式
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="setting-actions">
+                    <button class="btn btn-primary" onclick="saveSettings()">
+                        <i class="fas fa-save"></i> 保存设置
+                    </button>
+                    <button class="btn" onclick="clearData()">
+                        <i class="fas fa-trash"></i> 清除数据
+                    </button>
+                </div>
+                
+                <div class="about-card">
+                    <h3><i class="fas fa-info-circle"></i> 关于</h3>
+                    <p>彩票开奖统计工具 v2.0</p>
+                    <p>专为13点和14点统计分析设计</p>
+                    <p>最后更新: 2023-12-29</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 底部导航 -->
+    <nav class="bottom-nav">
+        <a href="#" class="nav-item active" onclick="showSection('dashboard')">
+            <i class="fas fa-home"></i>
+            <span>首页</span>
+        </a>
+        <a href="#" class="nav-item" onclick="showSection('point13')">
+            <i class="fas fa-chart-bar"></i>
+            <span>13点</span>
+        </a>
+        <a href="#" class="nav-item" onclick="showSection('point14')">
+            <i class="fas fa-chart-bar"></i>
+            <span>14点</span>
+        </a>
+        <a href="#" class="nav-item" onclick="showSection('settings')">
+            <i class="fas fa-cog"></i>
+            <span>设置</span>
+        </a>
+    </nav>
+
+    <!-- 消息提示 -->
+    <div class="toast" id="toast"></div>
+
+    <!-- 引入脚本 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
